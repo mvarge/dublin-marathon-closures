@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en-IE">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Dublin Marathon 2026 Road Closures Map · Sun 25 Oct</title>
+    <meta name="description" content="Which Dublin roads are closed for the Irish Life Dublin Marathon on Sunday 25 October 2026, and when they reopen. Live map, search your road, open in Google Maps." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dublin Marathon road closures: live map" />
+    <meta property="og:description" content="See which roads are closed right now, and when your road reopens. Sunday 25 October 2026." />
+    <meta property="og:image" content="/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_IE" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dublin Marathon road closures: live map" />
+    <meta name="twitter:description" content="See which roads are closed right now, and when your road reopens. Sunday 25 October 2026." />
+    <meta name="twitter:image" content="/og.png" />
+
+    <link rel="preload" href="/data/closures.geojson" as="fetch" crossorigin />
+  </head>
+  <body>
+    <div id="map" aria-label="Map of road closures"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="dot" aria-hidden="true"></span>
+        <div>
+          <h1>Dublin Marathon road closures</h1>
+          <p class="sub">Sunday 25 October 2026</p>
+        </div>
+      </div>
+      <button id="locate" class="icon-btn" title="Closures near me" aria-label="Closures near me">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+    </header>
+
+    <aside id="sheet" class="sheet" data-state="peek">
+      <button id="handle" class="handle" aria-label="Expand list"><span></span></button>
+
+      <section class="when">
+        <div class="when-row">
+          <div>
+            <div id="when-label" class="when-label">Now</div>
+            <div id="when-time" class="when-time">–</div>
+          </div>
+          <button id="now-btn" class="pill" hidden>Back to now</button>
+        </div>
+        <input id="slider" type="range" min="0" max="72" step="1" aria-label="Choose a time on Sunday" />
+        <div class="ticks" aria-hidden="true"><span>4am</span><span>8am</span><span>12pm</span><span>4pm</span><span>8pm</span></div>
+        <div id="summary" class="summary"></div>
+      </section>
+
+      <section class="legend" aria-label="Legend">
+        <span><i class="sw closed"></i>Closed</span>
+        <span><i class="sw soon"></i>Closes within 2h</span>
+        <span><i class="sw later"></i>Closes later</span>
+        <span><i class="sw open"></i>Reopened</span>
+        <span><i class="sw course"></i>Race route</span>
+      </section>
+
+      <div class="search">
+        <input id="q" type="search" placeholder="Search a road, e.g. Crumlin Road" autocomplete="off" />
+      </div>
+
+      <div id="list" class="list" role="list"></div>
+
+      <footer class="foot">
+        <p>Times are Irish time. Clocks go back at 2am on Sunday.</p>
+        <p>
+          Unofficial map built from the
+          <a href="https://irishlifedublinmarathon.ie/" target="_blank" rel="noopener">official road closures list</a>.
+          Follow Garda directions on the day. Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
+        </p>
+      </footer>
+    </aside>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
