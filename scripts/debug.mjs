@@ -1,0 +1,10 @@
+import { chromium } from "playwright-core";
+const b = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
+const p = await b.newPage();
+p.on("console", (m) => console.log("console", m.type(), m.text()));
+p.on("pageerror", (e) => console.log("pageerror", e.message));
+p.on("requestfailed", (r) => console.log("reqfail", r.url(), r.failure()?.errorText));
+p.on("response", (r) => r.status() >= 400 && console.log("http", r.status(), r.url()));
+await p.goto(process.argv[2] ?? "http://localhost:4317/");
+await p.waitForTimeout(6000);
+await b.close();
