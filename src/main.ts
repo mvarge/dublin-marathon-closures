@@ -191,11 +191,65 @@ map.on("load", async () => {
     map.on("mouseleave", id, () => (map.getCanvas().style.cursor = ""));
   }
 
-  // deep link ?road=slug
-  const deep = new URLSearchParams(location.search).get("road");
+  // restore a shared view: ?t=1015&road=crumlin-road&v=-6.29,53.33,13.2&q=kevin
+  const sp = new URLSearchParams(location.search);
+  const tParam = sp.get("t");
+  if (tParam && /^\d{3,4}$/.test(tParam)) {
+    const hh = Number(tParam.slice(0, -2)), mm = Number(tParam.slice(-2));
+    const mins = (hh * 60 + mm) - 4 * 60; // minutes after 4am Sunday
+    if (mins >= 0 && mins <= 72 * STEP_MIN) selectedTime = SUN_START + Math.round(mins / STEP_MIN) * STEP_MIN * 60_000;
+  }
+  if (sp.get("q")) q.value = sp.get("q")!;
+  applyTime();
+  const deep = sp.get("road");
   const r = deep && roads.find((x) => x.key === deep);
-  if (r) selectRoad(r, { fly: true });
-  else fitAll();
+  const v = sp.get("v")?.split(",").map(Number);
+  const hasView = v && v.length === 3 && v.every(Number.isFinite);
+  if (r) selectRoad(r, { fly: !hasView });
+  if (hasView) map.jumpTo({ center: [v![0], v![1]], zoom: v![2] });
+  else if (!r) fitAll();
+  restoring = false;
+});
+
+// ---------------------------------------------------------------- shareable view link
+let restoring = true;
+
+function viewParams(): URLSearchParams {
+  const p = new URLSearchParams();
+  if (selectedTime !== null) {
+    const p2 = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(selectedTime).map((x) => [x.type, x.value]));
+    p.set("t", `${Number(p2.hour)}${p2.minute}`);
+  }
+  const sel = openPopup && (openPopup as any)._road as Road | undefined;
+  if (sel) p.set("road", sel.key);
+  if (q.value.trim()) p.set("q", q.value.trim());
+  const c = map.getCenter();
+  p.set("v", `${c.lng.toFixed(4)},${c.lat.toFixed(4)},${map.getZoom().toFixed(1)}`);
+  return p;
+}
+
+function viewUrl() {
+  return `${location.origin}/?${viewParams().toString().replace(/%2C/g, ",")}`;
+}
+
+// keep the address bar in sync too, so copying from it also works
+let syncTimer = 0;
+function syncUrl() {
+  if (restoring) return;
+  clearTimeout(syncTimer);
+  syncTimer = window.setTimeout(() => history.replaceState(null, "", viewUrl().replace(location.origin, "")), 250);
+}
+map.on("moveend", syncUrl);
+
+$("copy-view").addEventListener("click", async () => {
+  const url = viewUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast("Link copied. Anyone opening it sees this exact view.");
+  } catch {
+    // clipboard blocked (old browsers / http): fall back to a prompt they can copy from
+    window.prompt("Copy this link:", url);
+  }
 });
 
 function fitAll() {
@@ -286,6 +340,7 @@ function applyTime() {
     : `<b class="c-closed">${nClosed} closed</b>` + (nSoon ? ` · <b class="c-soon">${nSoon} closing within 2h</b>` : "") + (!live || isSunday(t) ? "" : ` · Main closures are on Sunday. Drag the slider to see them.`);
 
   renderList();
+  syncUrl();
   if (openPopup && (openPopup as any)._road) openPopup.setDOMContent(popupContent((openPopup as any)._road));
 }
 
@@ -386,11 +441,11 @@ function selectRoad(r: Road, opts: { fly: boolean; at?: maplibregl.LngLat }) {
     if (openPopup === popup) {
       openPopup = null;
       map.setFilter("roads-selected", ["==", ["get", "id"], ""]);
-      history.replaceState(null, "", location.pathname);
+      syncUrl();
     }
   });
   openPopup = popup;
-  history.replaceState(null, "", `?road=${r.key}`);
+  syncUrl();
   if (opts.fly) {
     map.fitBounds(r.bbox, { padding: padding(), maxZoom: 16, duration: 700 });
   }
@@ -398,7 +453,11 @@ function selectRoad(r: Road, opts: { fly: boolean; at?: maplibregl.LngLat }) {
 
 // ---------------------------------------------------------------- share
 async function share(r?: Road) {
-  const url = r ? `${location.origin}/?road=${r.key}` : location.origin;
+  const p = new URLSearchParams();
+  if (r) p.set("road", r.key);
+  const t = viewParams().get("t");
+  if (t) p.set("t", t);
+  const url = `${location.origin}/${p.size ? "?" + p : ""}`;
   const text = r ? `${baseName(r.name)}: ${describe(r, currentTime()).line.replace(/<[^>]+>/g, "")}. Dublin Marathon road closures map` : "Dublin Marathon road closures map";
   try {
     if (navigator.share) await navigator.share({ title: "Dublin Marathon road closures", text, url });
@@ -432,6 +491,7 @@ nowBtn.addEventListener("click", () => {
 });
 q.addEventListener("input", () => {
   renderList();
+  syncUrl();
   if (!matchMedia("(min-width: 820px)").matches) setSheet("full");
 });
 q.addEventListener("focus", () => {

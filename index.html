@@ -9,16 +9,21 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://marathon.mvarge.com/" />
+    <link rel="canonical" href="https://marathon.mvarge.com/" />
     <meta property="og:title" content="Dublin Marathon road closures: live map" />
     <meta property="og:description" content="See which roads are closed right now, and when your road reopens. Sunday 25 October 2026." />
-    <meta property="og:image" content="/og.png" />
+    <meta property="og:image" content="https://marathon.mvarge.com/og.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:alt" content="Map of Dublin with marathon road closures highlighted in red" />
+    <meta property="og:site_name" content="Dublin Marathon road closures" />
     <meta property="og:locale" content="en_IE" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Dublin Marathon road closures: live map" />
     <meta name="twitter:description" content="See which roads are closed right now, and when your road reopens. Sunday 25 October 2026." />
-    <meta name="twitter:image" content="/og.png" />
+    <meta name="twitter:image" content="https://marathon.mvarge.com/og.jpg" />
 
     <link rel="preload" href="/data/closures.geojson" as="fetch" crossorigin />
   </head>
@@ -29,10 +34,14 @@
       <div class="brand">
         <span class="dot" aria-hidden="true"></span>
         <div>
-          <h1>Dublin Marathon road closures</h1>
+          <h1><span class="hide-sm">Dublin </span>Marathon road closures</h1>
           <p class="sub">Sunday 25 October 2026</p>
         </div>
       </div>
+      <button id="copy-view" class="copy-btn" title="Copy a link to exactly what you're seeing" aria-label="Copy link to this view">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Copy link</span>
+      </button>
       <button id="locate" class="icon-btn" title="Closures near me" aria-label="Closures near me">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
       </button>
