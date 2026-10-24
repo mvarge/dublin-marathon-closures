@@ -122,7 +122,12 @@ export const routeClosures = [
   r("St Laurence Road", "08:30", "14:00", { osm: ["Saint Laurence's Road"] }),
   r("Sarsfield Road", "08:30", "14:00"),
   r("Inchicore Road", "08:25", "14:00"),
-  r("South Circular Road", "08:25", "14:30", { note: "Water station" }),
+  // `via`: OSM leaves the Rialto junction segment unnamed, which splits the road in two.
+  // Without these points the fallback router cut down Dolphin Road and the canal towpath.
+  r("South Circular Road", "08:25", "14:30", {
+    note: "Water station",
+    via: [[-6.29899, 53.33649], [-6.29882, 53.33635]],
+  }),
   r("Dolphin's Barn", "08:45", "14:30", { osm: ["Dolphin's Barn", "Dolphin's Barn Street", "Dolphins Barn"] }),
   r("Crumlin Road", "08:30", "15:00", { note: "Water station" }),
   r("Drimnagh Road", "07:00", "15:00", { note: "Traffic box" }),

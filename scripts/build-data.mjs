@@ -276,16 +276,25 @@ for (let i = 0; i < roads.length; i++) {
     courseLegs.push(leg.coords);
   }
 
-  const straight = dist(a, b);
-  let leg = pathOnRoad(comp[i], a, b);
-  let how = "road";
-  if (!leg || leg.distance > straight * 1.6 + 150) {
-    leg = await osrm(a, b);
-    how = "osrm";
+  // `via` pins the line to fixed points, so each sub-leg is short and can't detour.
+  const stops = [a, ...(c.via ?? []), b];
+  const coords = [];
+  for (let s = 0; s + 1 < stops.length; s++) {
+    const p = stops[s], q = stops[s + 1];
+    const straight = dist(p, q);
+    let leg = pathOnRoad(comp[i], p, q);
+    let how = "road";
+    if (!leg || leg.distance > straight * 1.6 + 150) {
+      leg = await osrm(p, q);
+      how = "osrm";
+    }
+    coords.push(...(s ? leg.coords.slice(1) : leg.coords));
+    // short OSRM hops across junction gaps (between `via` points) are expected
+    if ((how === "osrm" && leg.distance > 80) || leg.distance > straight * 1.6 + 150)
+      warnings.push(`CHECK "${c.name}"${stops.length > 2 ? ` part ${s + 1}` : ""} (${how}): leg ${Math.round(leg.distance)}m vs straight ${Math.round(straight)}m${leg.names ? ` via [${leg.names.join(", ")}]` : ""}`);
   }
+  const leg = { coords };
   courseLegs.push(leg.coords);
-  if (how === "osrm" || leg.distance > straight * 1.6 + 150)
-    warnings.push(`CHECK "${c.name}" (${how}): leg ${Math.round(leg.distance)}m vs straight ${Math.round(straight)}m${leg.names ? ` via [${leg.names.join(", ")}]` : ""}`);
 
   features.push({
     type: "Feature",
