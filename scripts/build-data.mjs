@@ -71,6 +71,54 @@ for (const el of osm.elements) {
   waysByName.get(n).push({ id: el.id, nodes: el.nodes, coords, tags: el.tags });
 }
 
+// ---------- 1b. Unnamed junction pieces ----------
+// OSM often leaves short junction segments unnamed (e.g. South Circular Road at
+// Rialto), which splits a named road into disconnected pieces. Fetch unnamed road
+// ways up to two hops from our named ways, chain them into groups, and attach a
+// group to a road only if it touches that road at 2+ separate nodes, i.e. it
+// bridges a gap in the road rather than branching off it. Bridges are kept separate
+// and only used when the named ways alone can't produce a sensible leg.
+const bridgesByName = new Map();
+const UNNAMED_EXCL = "footway|cycleway|path|steps|pedestrian|construction|proposed|service|track|bridleway|corridor";
+const unnamedQuery = `[out:json][timeout:120];way["highway"]["highway"!~"^(footway|cycleway|path|steps|pedestrian|construction|proposed)$"]["name"~"^(${nameRegex})$"](${DUBLIN_BBOX.join(",")})->.named;node(w.named)->.n1;way(bn.n1)["highway"]["highway"!~"^(${UNNAMED_EXCL})$"][!"name"]->.u1;node(w.u1)->.n2;way(bn.n2)["highway"]["highway"!~"^(${UNNAMED_EXCL})$"][!"name"]->.u2;(.u1;.u2;);out geom;`;
+const unnamedOsm = await cached("overpass-unnamed", async () => {
+  console.log("Fetching Overpass (unnamed junction ways)…");
+  const res = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" },
+    body: "data=" + encodeURIComponent(unnamedQuery),
+  });
+  if (!res.ok) throw new Error(`Overpass ${res.status}: ${await res.text()}`);
+  return res.json();
+});
+{
+  const MAX_BRIDGE_M = 300;
+  const unnamed = unnamedOsm.elements
+    .filter((el) => el.type === "way" && el.geometry)
+    .map((el) => ({ id: el.id, nodes: el.nodes, coords: el.geometry.map((g) => [g.lon, g.lat]), tags: el.tags }));
+  // chain unnamed ways that share nodes
+  const parent = unnamed.map((_, i) => i);
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const owner = new Map();
+  unnamed.forEach((w, i) => w.nodes.forEach((n) => (owner.has(n) ? (parent[find(i)] = find(owner.get(n))) : owner.set(n, i))));
+  const groups = new Map();
+  unnamed.forEach((w, i) => groups.set(find(i), [...(groups.get(find(i)) ?? []), w]));
+  // node -> road names it belongs to
+  const nodeNames = new Map();
+  for (const [n, ws] of waysByName) for (const w of ws) for (const id of w.nodes) {
+    if (!nodeNames.has(id)) nodeNames.set(id, new Set());
+    nodeNames.get(id).add(n);
+  }
+  for (const ws of groups.values()) {
+    const len = ws.reduce((s, w) => s + w.coords.slice(1).reduce((t, p, i) => t + dist(w.coords[i], p), 0), 0);
+    if (len > MAX_BRIDGE_M) continue;
+    const touches = new Map(); // name -> set of touching nodes
+    for (const w of ws) for (const id of w.nodes) for (const n of nodeNames.get(id) ?? [])
+      touches.set(n, (touches.get(n) ?? new Set()).add(id));
+    for (const [n, ids] of touches) if (ids.size >= 2) bridgesByName.set(n, [...(bridgesByName.get(n) ?? []), ...ws]);
+  }
+}
+
 // connected components of same-named ways (via shared nodes)
 function components(ways) {
   const parent = ways.map((_, i) => i);
@@ -282,11 +330,17 @@ for (let i = 0; i < roads.length; i++) {
   for (let s = 0; s + 1 < stops.length; s++) {
     const p = stops[s], q = stops[s + 1];
     const straight = dist(p, q);
+    const sane = (l) => l && l.distance <= straight * 1.6 + 150;
     let leg = pathOnRoad(comp[i], p, q);
     let how = "road";
-    if (!leg || leg.distance > straight * 1.6 + 150) {
-      leg = await osrm(p, q);
-      how = "osrm";
+    if (!sane(leg)) {
+      // Named ways alone are disconnected. Try again with unnamed junction bridges,
+      // but only trust it if it isn't longer than the router's answer: a bridge can
+      // also open a loop through a slip road (seen on the N11).
+      const osrmLeg = await osrm(p, q);
+      const bridged = bridgesByName.size ? pathOnRoad([...comp[i], ...namesOf(c).flatMap((n) => bridgesByName.get(n) ?? [])], p, q) : null;
+      if (sane(bridged) && bridged.distance <= osrmLeg.distance * 1.1 + 50) { leg = bridged; how = "road+bridge"; }
+      else { leg = osrmLeg; how = "osrm"; }
     }
     coords.push(...(s ? leg.coords.slice(1) : leg.coords));
     // short OSRM hops across junction gaps (between `via` points) are expected
