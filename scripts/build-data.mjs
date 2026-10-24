@@ -44,7 +44,8 @@ async function cached(key, fn) {
 // ---------- 1. Overpass: all named roads we care about ----------
 const allNames = new Set(helperRoads);
 for (const c of [...areaClosures, ...routeClosures]) if (!c.point) namesOf(c).forEach((n) => allNames.add(n));
-for (const c of [routeStart, routeFinish]) c.between.forEach((n) => allNames.add(n));
+routeStart.between.forEach((n) => allNames.add(n));
+routeFinish.roads.forEach((n) => allNames.add(n));
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\\\$&");
 const nameRegex = [...allNames].map(esc).join("|");
@@ -218,9 +219,29 @@ for (let i = 0; i < roads.length; i++) {
   } else exits.push(null);
 }
 
-// finish point: Mount Street Lower toward Merrion Square East
-const mslComp = pickComponent(["Mount Street Lower"], [-6.2425, 53.3363]);
-const finishPt = junction(mslComp, routeFinish.between.slice(1), allCoords(mslComp))?.pt;
+// project p onto the nearest segment of `ways` (vertex snapping is too coarse on short streets)
+function snapToWays(ways, p) {
+  let best = { d: Infinity, pt: null };
+  const kx = Math.cos(toRad(p[1]));
+  for (const w of ways)
+    for (let i = 1; i < w.coords.length; i++) {
+      const [ax, ay] = w.coords[i - 1], [bx, by] = w.coords[i];
+      const dx = (bx - ax) * kx, dy = by - ay;
+      const L = dx * dx + dy * dy;
+      const t = L ? Math.max(0, Math.min(1, (((p[0] - ax) * kx) * dx + (p[1] - ay) * dy) / L)) : 0;
+      const q = [ax + (bx - ax) * t, ay + (by - ay) * t];
+      const d = dist(p, q);
+      if (d < best.d) best = { d, pt: q };
+    }
+  return best;
+}
+
+// finish point: on Mount Street Upper just past the Pepper Canister Church
+const finishWays = waysFor(routeFinish.roads, CENTRE_BBOX);
+const finishSnap = snapToWays(waysFor([routeFinish.street], CENTRE_BBOX), routeFinish.near);
+const finishPt = finishSnap.pt;
+if (!finishPt) warnings.push(`FINISH: no geometry for "${routeFinish.street}"`);
+else if (finishSnap.d > 40) warnings.push(`FINISH: snapped ${Math.round(finishSnap.d)}m from hint`);
 
 async function osrm(a, b) {
   const key = `osrm-${a.map((x) => x.toFixed(5)).join(",")}-${b.map((x) => x.toFixed(5)).join(",")}`;
@@ -313,8 +334,21 @@ for (let i = 0; i < roads.length; i++) {
   prevExit = b;
 }
 
-// final stretch up Mount Street Lower to finish
-if (prevExit && finishPt && dist(prevExit, finishPt) > 25) courseLegs.push((await osrm(prevExit, finishPt)).coords);
+// final stretch: Warrington Place → Mount Street Crescent → Mount Street Upper to finish.
+// Stay on those named roads; only fall back to OSRM if the OSM graph doesn't connect.
+if (prevExit && finishPt && dist(prevExit, finishPt) > 25) {
+  let leg = pathOnRoad(finishWays, prevExit, finishPt);
+  if (leg) {
+    // pathOnRoad ends at the nearest OSM vertex, which can sit past the finish; drop that overshoot
+    const cs = leg.coords;
+    while (cs.length > 3 && dist(cs.at(-3), cs.at(-1)) < dist(cs.at(-3), cs.at(-2))) cs.splice(-2, 1);
+  }
+  if (!leg) {
+    leg = await osrm(prevExit, finishPt);
+    warnings.push(`FINISH: final stretch routed by OSRM via [${leg.names.join(", ")}]`);
+  }
+  courseLegs.push(leg.coords);
+}
 
 features.unshift({
   type: "Feature",

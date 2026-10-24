@@ -159,10 +159,18 @@ export const routeClosures = [
   }),
 ];
 
-// Route line is drawn through the junctions of consecutive route roads, then
-// finishes up Mount Street Lower (already listed in areaClosures) toward Merrion Square.
+// Route line is drawn through the junctions of consecutive route roads.
+// Finish (official route map + start/finish map): after Northumberland Road the
+// course turns along Warrington Place, round Mount Street Crescent (Pepper
+// Canister Church) and finishes on Mount Street Upper, just past the church,
+// short of Stephen's Place. It does NOT use Mount Street Lower.
+// Mount Street Upper isn't in the Road-Closures PDF, so it's only drawn as course.
 export const routeStart = { between: ["Leeson Street Lower", "Hatch Street Lower"] };
-export const routeFinish = { between: ["Mount Street Lower", "Merrion Square East"] };
+export const routeFinish = {
+  roads: ["Warrington Place", "Mount Street Crescent", "Mount Street Upper"],
+  street: "Mount Street Upper",
+  near: [-6.2458, 53.33765], // snapped to Mount Street Upper; per official start/finish map
+};
 
 // Helper road names fetched only to compute junctions.
 export const helperRoads = ["Lansdowne Road", "Haddington Road", "Hatch Street Lower"];
