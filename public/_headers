@@ -1,0 +1,12 @@
+/tiles/*
+  Cache-Control: public, max-age=86400, immutable
+  Access-Control-Allow-Origin: *
+
+/basemap/*
+  Cache-Control: public, max-age=604800, immutable
+
+/data/*
+  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
