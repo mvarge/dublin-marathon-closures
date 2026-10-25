@@ -108,7 +108,8 @@ input[type="range"].off-range { opacity: .45; }
 .foot { padding: 10px 16px 14px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); flex: none; }
 .foot p { margin: 0 0 4px; }
 .foot .credit { margin-top: 8px; opacity: .8; }
-.foot .credit a { color: inherit; }
+.foot .credit a { color: inherit; display: inline-flex; align-items: center; gap: 4px; }
+.foot .credit svg { flex: none; }
 
 /* ---------- popup ---------- */
 .maplibregl-popup-content { border-radius: 14px; padding: 14px 14px 12px; box-shadow: var(--shadow); }
